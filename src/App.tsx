@@ -81,6 +81,7 @@ export default function App() {
       </p>
 
       <HabitForm
+        habits={habits}
         onAdd={addHabit}
         editingHabit={editingHabit}
         onUpdate={updateHabit}

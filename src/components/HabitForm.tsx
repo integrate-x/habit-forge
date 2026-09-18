@@ -6,6 +6,7 @@ import type {
 } from '../../shared/types';
 
 interface HabitFormProps {
+  habits: Habit[];
   onAdd: (habit: Habit) => void;
   editingHabit?: Habit | null;
   onUpdate?: (habit: Habit) => void;
@@ -28,6 +29,7 @@ const verificationMethods: VerificationMethod[] = [
 ];
 
 export default function HabitForm({
+  habits,
   onAdd,
   editingHabit,
   onUpdate,
@@ -75,6 +77,18 @@ export default function HabitForm({
     const trimmedName = name.trim();
 
     if (!trimmedName) {
+      return;
+    }
+
+    const duplicate = habits.some(
+      (habit) =>
+        habit.name.toLowerCase() ===
+        trimmedName.toLowerCase() &&
+        habit.id !== editingHabit?.id,
+    );
+
+    if (duplicate) {
+      alert('A habit with this name already exists.');
       return;
     }
 
