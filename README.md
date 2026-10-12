@@ -13,7 +13,8 @@ Local-first habit dashboard with a Chrome MV3 companion.
 - Public GitHub verification: each unique push, opened pull request or opened issue counts as one activity toward the habit requirement. Manual completion remains available and is labeled separately.
 - Experimental public LeetCode verification for distinct problems accepted today.
 - Kaggle notebook verification through a local service with server-only credentials.
-- Tauri 2 desktop-shell and packaging configuration (native build not yet validated).
+- Tauri 2 desktop shell, native provider checks, paired Chrome transport and Windows installer CI.
+- Export/restore for moving browser data into desktop, with recovery copies and rollback on failed writes.
 
 ## Run and verify
 Use Node 24 or newer.
@@ -84,11 +85,25 @@ npm run desktop:dev
 npm run desktop:build
 ```
 
-The shell embeds the dashboard and uses its own webview storage. It does not automatically migrate browser data. Chrome content scripts cannot run in a Tauri webview, so browser focus controls are hidden in the packaged shell. Native scheduling, notifications, browser/desktop state transport, installer verification, signing and distribution still need implementation/testing before a desktop release.
+The shell embeds the dashboard and uses its own webview storage. LeetCode/Kaggle requests use native Rust commands with the same activity definitions as the browser service. Node is not required at runtime. Kaggle credentials come from `KAGGLE_API_TOKEN` or `KAGGLE_USERNAME`/`KAGGLE_KEY` in the environment inherited by the desktop process; `.env.local` is only loaded by the Node browser service. GitHub uses the existing public API check. No account tokens are exposed through the webview.
+
+To enable browser focus controls from desktop:
+
+1. Load the updated unpacked Chrome extension.
+2. Copy the pairing token from the desktop app's Chrome companion panel.
+3. Open the extension menu, paste the token and select Pair desktop.
+
+The companion reads a token-authenticated snapshot from `127.0.0.1:5175` once per minute. Tokens are generated once in the desktop app-data directory, outside backups; on Unix the token file is created with mode 0600. The bridge is read-only, checks Host and Authorization headers, and sends only the minimal companion snapshot. Browser dashboard sync cannot overwrite desktop state while paired. Select Use browser dashboard in the extension menu to unpair and immediately clear desktop enforcement. Pairing does not merge the two data stores.
+
+Chrome remains responsible for website blocking, browser opening and notifications. It must be running for those features. If desktop closes, Chrome retains the last accepted snapshot and continues evaluating dated events and schedules; reopen desktop to record completion or unpair to release enforcement. Desktop does not provide OS-wide website blocking, an independent background scheduler, or native notifications.
+
+Use Export backup in the browser and Import backup in desktop to migrate your records. Imports validate the schema and show a preview before Restore backup replaces data. A raw recovery copy is saved under `habit-forge-before-restore-*` before writes; failed writes roll back existing data. Unknown schema versions and duplicates are rejected. Desktop export uses a native save dialog. Neither pairing tokens nor provider credentials are included.
+
+The Desktop checks workflow tests the native bridge/provider parsers on Linux, builds the Windows NSIS installer, and uploads a `windows-installer` artifact. These are development installers without signing or automatic updates. Install/launch testing on a real Windows machine, live authenticated Kaggle checks, Linux/macOS bundles and signing remain release work.
 
 ## Remaining release work
 - Authenticated Kaggle acceptance testing with a configured account; live LeetCode activity checks and monitoring for upstream contract changes.
-- Native desktop companion integration and tested installers.
+- Windows installer install/launch acceptance, signing, updates and Linux/macOS bundles.
 - Manual review of desktop/mobile screenshots and OS notification delivery.
 - Historical schedule/pause tracking for historically accurate analytics.
 

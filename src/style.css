@@ -95,6 +95,8 @@ li { padding: 8px 0; overflow-wrap: anywhere; }
 table { width: 100%; border-collapse: collapse; margin-top: 20px; }
 th, td { padding: 10px; text-align: left; border-bottom: 1px solid #303641; }
 [role="alert"] { color: #ff9da7; }
+.file-label { display: block; margin-top: 16px; }
+input[type="file"], input[aria-label="Pairing token"] { width: 100%; max-width: 100%; margin: 8px 0; }
 
 .habit span {
   display: block;

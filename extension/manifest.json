@@ -31,7 +31,8 @@
     }
   ],
   "action": {
-    "default_title": "Habit Forge"
+    "default_title": "Habit Forge",
+    "default_popup": "popup.html"
   }
 }
 

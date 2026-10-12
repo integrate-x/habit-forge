@@ -3,8 +3,8 @@ import type {
   HabitCategory,
   VerificationMethod,
 } from '../../shared/types';
-import { backupHabitDataBeforeMigration } from './completionStorage';
-import { migrateHabitArray } from './migrateHabits';
+import { backupHabitDataBeforeMigration } from './completionStorage.ts';
+import { migrateHabitArray } from './migrateHabits.ts';
 
 const STORAGE_KEY = 'habit-forge';
 const INITIALIZED_KEY = 'habit-forge-initialized';
@@ -78,7 +78,7 @@ function isValidVerificationMethod(
   );
 }
 
-function isHabit(value: unknown): value is Habit {
+export function isHabit(value: unknown): value is Habit {
   if (!value || typeof value !== 'object') {
     return false;
   }

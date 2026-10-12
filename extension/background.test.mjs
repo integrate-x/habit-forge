@@ -9,7 +9,7 @@ test('background sync, tick deduplication, completion unlock, and sender validat
   const state = {};
   let rules = [], tabs = 0, notifications = 0;
   globalThis.chrome = {
-    runtime: { id: 'extension-id', onInstalled: listen('install'), onStartup: listen('startup'), onMessage: listen('message') },
+    runtime: { id: 'extension-id', getURL: path => `chrome-extension://extension-id/${path}`, onInstalled: listen('install'), onStartup: listen('startup'), onMessage: listen('message') },
     alarms: { create: async () => {}, onAlarm: listen('alarm') },
     action: { onClicked: listen('click') },
     storage: { local: {

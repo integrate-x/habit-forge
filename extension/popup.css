@@ -1,0 +1,6 @@
+body { width: 300px; margin: 0; padding: 20px; font: 14px system-ui, sans-serif; background: #181b21; color: #eee; }
+h1 { font-size: 20px; margin: 0 0 12px; }
+label { display: block; margin-bottom: 8px; }
+input { width: 100%; box-sizing: border-box; padding: 10px; background: #101218; color: white; border: 1px solid #303641; border-radius: 6px; }
+button { margin-top: 12px; padding: 10px; border: 0; border-radius: 6px; cursor: pointer; }
+p { overflow-wrap: anywhere; }
