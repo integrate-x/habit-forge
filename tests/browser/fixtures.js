@@ -2,9 +2,9 @@ import { test as base, chromium, expect } from '@playwright/test';
 import path from 'node:path';
 
 export const test = base.extend({
-  context: async ({ viewport, baseURL }, use, testInfo) => {
+  context: async ({ viewport, baseURL }, use) => {
     const extension = path.resolve('extension');
-    const context = await chromium.launchPersistentContext(testInfo.outputPath('profile'), {
+    const context = await chromium.launchPersistentContext('', {
       channel: 'chromium',
       headless: true,
       viewport,
@@ -17,14 +17,8 @@ export const test = base.extend({
         '--no-proxy-server',
       ],
     });
-    await context.tracing.start({ screenshots: true, snapshots: true, sources: true });
     try { await use(context); }
-    finally {
-      const trace = testInfo.outputPath('trace.zip');
-      await context.tracing.stop(testInfo.status !== testInfo.expectedStatus ? { path: trace } : {});
-      if (testInfo.status !== testInfo.expectedStatus) await testInfo.attach('trace', { path: trace, contentType: 'application/zip' });
-      await context.close();
-    }
+    finally { await context.close(); }
   },
   worker: async ({ context }, use) => {
     const worker = context.serviceWorkers()[0] || await context.waitForEvent('serviceworker');
