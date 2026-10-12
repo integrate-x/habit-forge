@@ -26,6 +26,20 @@ npm run dev
 
 Tests cover migration, completion deduplication, streaks, Grace Days, settings recovery, analytics, domain rules, day rollover, sender validation, scheduler deduplication and provider errors. Web checks run in GitHub Actions.
 
+## Browser acceptance tests
+Install Playwright's Chromium browser, then run:
+
+```bash
+npx playwright install chromium
+npm run test:e2e
+```
+
+The suite loads the actual unpacked extension into isolated persistent Chromium profiles. It runs at desktop and mobile viewport sizes with the Asia/Kolkata timezone, using local test destinations and no external provider accounts. Real HTTP navigation verifies domain/subdomain blocking, required-site access, and unlocking after completion; Chrome APIs verify stored state, scheduler tab deduplication and installed alarms. UI cases cover Grace Days, Exam Mode, paused/off-day habits, migration/recovery, provider failures, persistence and layout overflow.
+
+Mobile viewport coverage emulates layout in desktop Chromium, not extension support on Android. GitHub verification responses are mocked; other extension and navigation behavior uses the real browser APIs. Notification rendering and OS delivery are not covered by this suite.
+
+GitHub Actions installs Chromium and runs the browser suite after the engine/build checks. Reports, failure traces and dashboard screenshots are uploaded as the `browser-test-report` artifact. Local tests manage ports 5173 and 4180 and stop their servers afterward. The reserved `*.habit-forge.test` destinations resolve only inside the test browser.
+
 ## Browser companion
 1. Open Chrome Extensions, enable Developer mode and load the `extension/` directory unpacked.
 2. Open the dashboard at `http://localhost:5173` or `http://127.0.0.1:5173`.
@@ -60,6 +74,6 @@ The shell embeds the dashboard and uses its own webview storage. It does not aut
 ## Remaining release work
 - LeetCode/Kaggle verification with explicit account setup and supported provider contracts.
 - Native desktop companion integration and tested installers.
-- Real-browser extension acceptance tests and desktop/mobile visual QA.
+- Passing real-browser acceptance results and review of desktop/mobile screenshots before release.
 - Historical schedule/pause tracking for historically accurate analytics.
 
