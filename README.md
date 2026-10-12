@@ -11,6 +11,8 @@ Local-first habit dashboard with a Chrome MV3 companion.
 - Grace Days are reversible for today, release enforcement for the habit, and bridge streak gaps without incrementing streaks. There is currently no quota.
 - Thirty-day analytics and per-habit totals. Rates use current schedules, not historical schedule revisions.
 - Public GitHub verification: each unique push, opened pull request or opened issue counts as one activity toward the habit requirement. Manual completion remains available and is labeled separately.
+- Experimental public LeetCode verification for distinct problems accepted today.
+- Kaggle notebook verification through a local service with server-only credentials.
 - Tauri 2 desktop-shell and packaging configuration (native build not yet validated).
 
 ## Run and verify
@@ -23,6 +25,8 @@ npm run typecheck
 npm run build
 npm run dev
 ```
+
+For LeetCode/Kaggle verification, use `npm run dev:full` instead. It starts the dashboard on port 5173 and the loopback-only verification service on port 5174. The API is proxied through the dashboard origin.
 
 Tests cover migration, completion deduplication, streaks, Grace Days, settings recovery, analytics, domain rules, day rollover, sender validation, scheduler deduplication and provider errors. Web checks run in GitHub Actions.
 
@@ -56,10 +60,21 @@ State only syncs from the local browser dashboard. The local origin is a trusted
 ## GitHub verification
 Set the habit's GitHub username, choose GitHub verification and click "Verify GitHub". Only public events from the latest three API pages are checked. Events can be delayed and unauthenticated API requests can be rate limited. This is not authenticated proof of account ownership, a complete contribution count, or private-repository verification. Verification failures never create completion events. No tokens or credentials are stored.
 
-LeetCode and Kaggle choices currently support manual completion only and display that limitation. Their automatic verification integrations remain to be implemented.
+## LeetCode and Kaggle verification
+Select a provider and set its username in the habit editor. Start `npm run dev:full`, then click the habit's Verify button. Manual completion is still available separately. Successful checks persist the provider source plus count, unit and check time; failed or stale checks do not award credit.
+
+LeetCode uses its public GraphQL endpoint's `matchedUser` and `recentAcSubmissionList` queries. This is an undocumented website contract, so the integration is experimental and may stop working if LeetCode changes it or denies access. Only the latest 100 accepted submissions are checked. Repeated submissions for the same problem count once, and only the browser's current local day is credited. Private histories and account ownership are not verified. No LeetCode login cookies are collected.
+
+Kaggle uses the v1 `kernels/list` compatibility API, filtering by owner and notebook type and checking up to three pages of 100 records sorted by latest run. A distinct owned notebook counts when its latest run timestamp falls today in the browser's timezone. This checks run metadata, not successful execution, editing time, competition submissions, or proof of learning. Accessible private notebooks can count if returned by Kaggle. Timezone-free or changed response formats fail closed.
+
+Configure Kaggle credentials only in the local service environment. Use `.env.example` as the template for a git-ignored `.env.local`; set either `KAGGLE_API_TOKEN`, or the legacy pair `KAGGLE_USERNAME` and `KAGGLE_KEY`. Never use a `VITE_` prefix or put secrets in habit fields. Restart `dev:full` after changing credentials. Credentials are neither returned to the dashboard nor exported to the extension. Authenticated Kaggle success still requires testing with your own account.
+
+The service only binds to `127.0.0.1`, accepts fixed provider operations, requires trusted dashboard origins and JSON requests, rejects oversized bodies, and does not expose upstream errors containing request details. It is for a single trusted local user, not public hosting. No credential endpoint or arbitrary URL proxy is provided. For a built dashboard, run `npm run verify:serve` alongside `npm run preview` on port 4173. Browser data does not migrate between dashboard origins.
+
+Provider contracts: [Kaggle authentication](https://github.com/Kaggle/kaggle-cli/blob/main/skills/references/auth.md), [v1 notebook-list parameters](https://github.com/Kaggle/kaggle-cli/blob/1.5.16/kaggle/api/kaggle_api.py), and [v1 notebook run fields](https://github.com/Kaggle/kaggle-cli/blob/1.5.16/kaggle/api/kaggle_api_extended.py). LeetCode's public endpoint was probed read-only during implementation; there is no official public API contract to cite for that query.
 
 ## Data and migration
-Existing habit and completion keys are retained. New settings use a versioned, separate key with enforcement disabled by default. Legacy habit migration backs up raw data before rewriting; malformed or unknown habit/event/settings data has recovery keys. Old manual events remain valid; verified GitHub events use the additive `github` source. Private habit descriptions and provider usernames are not exported to the extension. Browser localStorage is not cloud backup.
+Existing habit and completion keys are retained. New settings use a versioned, separate key with enforcement disabled by default. Legacy habit migration backs up raw data before rewriting; malformed or unknown habit/event/settings data has recovery keys. Old manual/GitHub events remain valid; new events use additive `leetcode`/`kaggle` sources with optional verification evidence. Private habit descriptions, provider usernames and evidence details are not exported to the extension. Browser localStorage is not cloud backup.
 
 ## Desktop shell
 Install the [Tauri prerequisites](https://v2.tauri.app/start/prerequisites/) for your operating system, then:
@@ -72,8 +87,8 @@ npm run desktop:build
 The shell embeds the dashboard and uses its own webview storage. It does not automatically migrate browser data. Chrome content scripts cannot run in a Tauri webview, so browser focus controls are hidden in the packaged shell. Native scheduling, notifications, browser/desktop state transport, installer verification, signing and distribution still need implementation/testing before a desktop release.
 
 ## Remaining release work
-- LeetCode/Kaggle verification with explicit account setup and supported provider contracts.
+- Authenticated Kaggle acceptance testing with a configured account; live LeetCode activity checks and monitoring for upstream contract changes.
 - Native desktop companion integration and tested installers.
-- Passing real-browser acceptance results and review of desktop/mobile screenshots before release.
+- Manual review of desktop/mobile screenshots and OS notification delivery.
 - Historical schedule/pause tracking for historically accurate analytics.
 

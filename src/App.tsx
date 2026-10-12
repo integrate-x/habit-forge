@@ -10,6 +10,7 @@ import { loadSettings, saveSettings } from './lib/settings';
 import SettingsPanel from './components/SettingsPanel';
 import Analytics from './components/Analytics';
 import { verifyGitHub } from './lib/verification';
+import { verifyProvider } from './lib/providerVerification';
 
 export default function App() {
   const [habits, setHabits] = useState<Habit[]>(loadHabits);
@@ -63,18 +64,22 @@ export default function App() {
     });
   };
   const verifyHabit = async (habit: Habit) => {
+    const provider = habit.verificationMethod;
+    if (provider === 'manual' || habit.paused || !habit.activeDays.includes(new Date().getDay())) return;
     setVerifying(true);
     setVerificationStatus('');
     const started = new Date();
     try {
-      const count = await verifyGitHub(habit.verificationUsername || '', habit.minimumRequirement, started);
+      const result = provider === 'github'
+        ? { count: await verifyGitHub(habit.verificationUsername || '', habit.minimumRequirement, started), unit: 'public activities' }
+        : await verifyProvider(provider, habit.verificationUsername || '', habit.minimumRequirement, started);
       const current = habitsRef.current.find(item => item.id === habit.id);
       const finished = new Date();
       if (!current || current.paused || current.updatedAt !== habit.updatedAt || localDateKey(finished) !== localDateKey(started)) {
         throw new Error('Habit or date changed while checking. Retry verification.');
       }
-      setEvents(events => recordCompletion(events, habit.id, finished, 'github'));
-      setVerificationStatus(`${habit.name}: verified ${count} public activities.`);
+      setEvents(events => recordCompletion(events, habit.id, finished, provider, { ...result, checkedAt: finished.toISOString() }));
+      setVerificationStatus(`${habit.name}: verified ${result.count} ${result.unit}.`);
     } catch (error) {
       setVerificationStatus(error instanceof Error ? error.message : 'Verification failed.');
     } finally { setVerifying(false); }

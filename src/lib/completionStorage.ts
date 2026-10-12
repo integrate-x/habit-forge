@@ -10,7 +10,11 @@ function isCompletionEvent(value: unknown): value is CompletionEvent {
     typeof event.habitId === 'string' && event.habitId.length > 0 &&
     typeof event.completedAt === 'string' && !Number.isNaN(Date.parse(event.completedAt)) &&
     typeof event.localDate === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(event.localDate) &&
-    (event.source === 'manual' || event.source === 'github');
+    ['manual', 'github', 'leetcode', 'kaggle'].includes(event.source!) &&
+    (event.verification === undefined || (event.verification &&
+      Number.isInteger(event.verification.count) && event.verification.count > 0 &&
+      typeof event.verification.unit === 'string' &&
+      typeof event.verification.checkedAt === 'string' && Number.isFinite(Date.parse(event.verification.checkedAt))));
 }
 
 export function loadCompletionEvents(): CompletionEvent[] {

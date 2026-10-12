@@ -5,14 +5,16 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:full": "node --experimental-strip-types --env-file-if-exists=.env.local scripts/dev.mjs",
+    "verify:serve": "node --experimental-strip-types --env-file-if-exists=.env.local server/index.mjs",
     "build": "npm run typecheck && vite build",
     "preview": "vite preview",
-    "typecheck": "tsc -p tsconfig.app.json",
+    "typecheck": "tsc -p tsconfig.app.json && tsc -p tsconfig.server.json",
     "tauri": "tauri",
     "desktop:dev": "tauri dev",
     "desktop:build": "tauri build",
     "test:e2e": "playwright test",
-    "test": "node --experimental-strip-types --test src/lib/*.test.mjs extension/*.test.mjs"
+    "test": "node --experimental-strip-types --test src/lib/*.test.mjs extension/*.test.mjs server/*.test.mjs"
   },
   "dependencies": {
     "@vitejs/plugin-react": "latest",
@@ -24,6 +26,7 @@
   "devDependencies": {
     "@playwright/test": "^1.64.0",
     "@tauri-apps/cli": "^2.12.2",
+    "@types/node": "^26.6.5",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0"
   }

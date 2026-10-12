@@ -9,7 +9,7 @@ function storage(entries = []) {
 }
 test('existing manual events and new verified events survive storage round trips', () => {
   storage();
-  const events = ['manual', 'github'].map((source, index) => ({
+  const events = ['manual', 'github', 'leetcode', 'kaggle'].map((source, index) => ({
     id: String(index), habitId: 'h', completedAt: '2026-10-12T10:00:00Z', localDate: '2026-10-12', source,
   }));
   saveCompletionEvents(events);

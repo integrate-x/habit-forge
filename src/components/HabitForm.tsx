@@ -82,7 +82,7 @@ export default function HabitForm({
   const handleSubmit = () => {
     const trimmedName = name.trim();
 
-    if (!trimmedName || !activeDays.length || !Number.isFinite(minimumRequirement) || minimumRequirement < 1 || !/^([01]\d|2[0-3]):[0-5]\d$/.test(scheduledTime)) {
+    if (!trimmedName || !activeDays.length || !Number.isInteger(minimumRequirement) || minimumRequirement < 1 || !/^([01]\d|2[0-3]):[0-5]\d$/.test(scheduledTime)) {
       alert('Provide a name, a valid time, a positive requirement, and at least one active day.');
       return;
     }
@@ -163,11 +163,13 @@ export default function HabitForm({
       <h2>{editingHabit ? 'Edit habit' : 'Add habit'}</h2>
 
       <div className="form">
-        {verificationMethod === 'github' && <input aria-label="GitHub username" placeholder="GitHub username" value={verificationUsername}
+        {verificationMethod !== 'manual' && <input aria-label={`${verificationMethod} username`} placeholder={`${verificationMethod} username`} value={verificationUsername}
           onChange={e => setVerificationUsername(e.target.value)} />}
         {verificationMethod !== 'manual' && <p className="muted">{verificationMethod === 'github'
           ? 'Verification counts public pushes, opened pull requests, and opened issues. Private activity is not checked.'
-          : 'Automatic verification for this provider is not available yet. Completions are recorded as manual.'}</p>}
+          : verificationMethod === 'leetcode'
+            ? 'Experimental verification: distinct problems accepted today from public recent activity.'
+            : 'Verification counts owned notebooks with a latest run today. Configure Kaggle credentials in the local verification service.'}</p>}
         <fieldset className="weekdays"><legend>Active days</legend>
           {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((label, day) => <label key={day}>
             <input type="checkbox" checked={activeDays.includes(day)} onChange={e => setActiveDays(current =>
