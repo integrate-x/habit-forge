@@ -19,9 +19,14 @@ test('real navigation is blocked by domain and unlocked after completion', async
   await seed(page, { 'habit-forge-settings': JSON.stringify(settings({ blockingEnabled: true })) });
   await openApp(page);
   await expect.poll(() => ruleCount(worker)).toBe(1);
+  // Chrome can still be committing its error page after goto rejects.
+  // Close each rejected navigation before testing an unrelated destination.
+  for (const url of [blocked, 'http://sub.blocked.habit-forge.test:4180/']) {
+    const rejected = await context.newPage();
+    try { await expect(rejected.goto(url)).rejects.toThrow(/ERR_BLOCKED_BY_CLIENT/); }
+    finally { await rejected.close(); }
+  }
   const target = await context.newPage();
-  await expect(target.goto(blocked)).rejects.toThrow(/ERR_BLOCKED_BY_CLIENT/);
-  await expect(target.goto('http://sub.blocked.habit-forge.test:4180/')).rejects.toThrow(/ERR_BLOCKED_BY_CLIENT/);
   await target.goto(`http://allowed.habit-forge.test:4180/?site=${encodeURIComponent(blocked)}`);
   await expect(target.getByRole('heading', { name: 'Acceptance destination' })).toBeVisible();
   await routine(page).getByRole('button', { name: 'Complete', exact: true }).click();
