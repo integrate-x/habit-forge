@@ -162,3 +162,74 @@ test('dashboard wraps long habit names without document overflow', async ({ page
   }
   expect(errors).toEqual([]);
 });
+
+for (const [provider, label, unit] of [
+  ['leetcode', 'LeetCode', 'distinct accepted problems'],
+  ['kaggle', 'Kaggle', 'notebooks last run'],
+]) {
+  test(`${label} verification fails without credit, then records provider evidence after success`, async ({ page, worker }) => {
+    await seed(page, { 'habit-forge': JSON.stringify([habit({ verificationMethod: provider, verificationUsername: 'coder', minimumRequirement: 2 })]) });
+    let enough = false;
+    await page.route('**/api/verify', route => {
+      const request = route.request().postDataJSON();
+      expect(request.provider).toBe(provider);
+      expect(request.username).toBe('coder');
+      expect(['Asia/Calcutta', 'Asia/Kolkata']).toContain(request.timeZone);
+      return route.fulfill({
+        status: enough ? 200 : 422, contentType: 'application/json',
+        body: JSON.stringify(enough
+          ? { provider, username: 'coder', localDate: request.localDate, count: 2, unit }
+          : { error: '1/2 activities found today.' }),
+      });
+    });
+    await openApp(page);
+    await routine(page).getByRole('button', { name: `Verify ${label}` }).click();
+    await expect(page.getByRole('status').filter({ hasText: '1/2 activities' })).toBeVisible();
+    expect(await stored(page, 'habit-forge-completions')).toHaveLength(0);
+    enough = true;
+    await routine(page).getByRole('button', { name: `Verify ${label}` }).click();
+    await expect(page.getByRole('status').filter({ hasText: `verified 2 ${unit}` })).toBeVisible();
+    const events = await stored(page, 'habit-forge-completions');
+    expect(events).toHaveLength(1);
+    expect(events[0].source).toBe(provider);
+    expect(events[0].verification.count).toBe(2);
+    expect(events[0].verification.unit).toBe(unit);
+    await expect.poll(() => worker.evaluate(async () => (await chrome.storage.local.get('habitForgeState')).habitForgeState.completions[0]?.source)).toBe(provider);
+    await page.reload();
+    await expect(routine(page).getByRole('button', { name: 'Completed today' })).toBeDisabled();
+    expect(await stored(page, 'habit-forge-completions')).toHaveLength(1);
+  });
+}
+
+test('Kaggle reports missing local credentials without recording completion', async ({ page }) => {
+  await seed(page, { 'habit-forge': JSON.stringify([habit({ verificationMethod: 'kaggle', verificationUsername: 'coder' })]) });
+  await openApp(page);
+  await routine(page).getByRole('button', { name: 'Verify Kaggle' }).click();
+  await expect(page.getByRole('status').filter({ hasText: 'Kaggle credentials are not configured' })).toBeVisible();
+  expect(await stored(page, 'habit-forge-completions')).toHaveLength(0);
+});
+
+test('a habit edited while provider verification is in flight receives no stale credit', async ({ page }) => {
+  await seed(page, { 'habit-forge': JSON.stringify([habit({ verificationMethod: 'leetcode', verificationUsername: 'coder' })]) });
+  let release, started;
+  const gate = new Promise(resolve => { release = resolve; });
+  const received = new Promise(resolve => { started = resolve; });
+  await page.route('**/api/verify', async route => {
+    const request = route.request().postDataJSON();
+    started();
+    await gate;
+    await route.fulfill({ contentType: 'application/json', body: JSON.stringify({
+      provider: 'leetcode', username: 'coder', localDate: request.localDate, count: 1, unit: 'distinct accepted problems',
+    }) });
+  });
+  await openApp(page);
+  await routine(page).getByRole('button', { name: 'Verify LeetCode' }).click();
+  await received;
+  try {
+    await routine(page).getByRole('button', { name: 'Edit', exact: true }).click();
+    await page.getByPlaceholder('Habit name', { exact: true }).fill('Changed while checking');
+    await page.getByRole('button', { name: 'Save changes' }).click();
+  } finally { release(); }
+  await expect(page.getByRole('status').filter({ hasText: 'Habit or date changed while checking' })).toBeVisible();
+  expect(await stored(page, 'habit-forge-completions')).toHaveLength(0);
+});

@@ -26,6 +26,7 @@ export interface CompletionEvent {
   completedAt: string;
   /** Local YYYY-MM-DD captured when the event was created. */
   localDate: string;
-  source: 'manual' | 'github';
+  source: VerificationMethod;
+  verification?: { count: number; unit: string; checkedAt: string };
 }
 

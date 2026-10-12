@@ -43,8 +43,8 @@ export default function HabitList({ habits, events, onToggle, onDelete, onPause,
               disabled={habit.paused || doneToday || !scheduled} aria-pressed={doneToday}>
               {doneToday ? 'Completed today' : habit.verificationMethod === 'manual' ? 'Complete' : 'Complete manually'}
             </button>
-            {habit.verificationMethod === 'github' && <button disabled={verifying || habit.paused || doneToday || !scheduled}
-              onClick={() => onVerify(habit)}>{verifying ? 'Checking...' : 'Verify GitHub'}</button>}
+            {habit.verificationMethod !== 'manual' && <button disabled={verifying || habit.paused || doneToday || !scheduled}
+              onClick={() => onVerify(habit)}>{verifying ? 'Checking...' : `Verify ${{ github: 'GitHub', leetcode: 'LeetCode', kaggle: 'Kaggle' }[habit.verificationMethod]}`}</button>}
             <button disabled={habit.paused || doneToday || !scheduled} onClick={() => onGrace(habit.id)}>{grace ? 'Remove Grace Day' : 'Use Grace Day'}</button>
             <button onClick={() => onEdit(habit)}>Edit</button>
             <button onClick={() => onPause(habit.id)}>{habit.paused ? 'Resume' : 'Pause'}</button>

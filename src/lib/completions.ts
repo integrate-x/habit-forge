@@ -33,6 +33,7 @@ export function recordCompletion(
   habitId: string,
   completedAt = new Date(),
   source: CompletionEvent['source'] = 'manual',
+  verification?: CompletionEvent['verification'],
 ): CompletionEvent[] {
   const localDate = localDateKey(completedAt);
   if (isCompletedOn(events, habitId, localDate)) return events;
@@ -42,6 +43,7 @@ export function recordCompletion(
     completedAt: completedAt.toISOString(),
     localDate,
     source,
+    ...(verification ? { verification } : {}),
   }];
 }
 
