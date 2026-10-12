@@ -5,6 +5,7 @@ import HabitList from './components/HabitList';
 import { loadHabits, saveHabits } from './lib/storage';
 import { loadCompletionEvents, saveCompletionEvents } from './lib/completionStorage';
 import { recordCompletion } from './lib/completions';
+import { publishExtensionSnapshot } from './lib/extensionBridge';
 
 export default function App() {
   const [habits, setHabits] = useState<Habit[]>(loadHabits);
@@ -13,6 +14,7 @@ export default function App() {
 
   useEffect(() => saveHabits(habits), [habits]);
   useEffect(() => saveCompletionEvents(events), [events]);
+  useEffect(() => publishExtensionSnapshot(habits, events), [habits, events]);
 
   const addHabit = (habit: Habit) => setHabits((current) => [...current, habit]);
 
