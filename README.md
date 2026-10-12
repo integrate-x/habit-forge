@@ -5,6 +5,9 @@ Local-first desktop productivity project.
 ## Included
 - React + TypeScript + Vite dashboard
 - Add/delete/complete habits
+- Real append-only completion events in localStorage
+- Current and longest streaks from scheduled active days
+- Safe habit migration with recovery backup before rewriting legacy data
 - Habit time and website configuration
 - Repeat Routine button
 - Minimal completion snapshot
@@ -16,6 +19,13 @@ Local-first desktop productivity project.
 npm install
 npm run dev
 ```
+
+## Test
+```bash
+npm test
+```
+
+The Phase 1 tests cover local date keys, one completion per local day, weekday-aware current and longest streaks, in-progress scheduled days, empty schedules, mixed current/legacy migration, and unsafe migration handling.
 
 ## Build
 ```bash
