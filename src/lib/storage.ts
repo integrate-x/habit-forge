@@ -3,6 +3,8 @@ import type {
   HabitCategory,
   VerificationMethod,
 } from '../../shared/types';
+import { backupHabitDataBeforeMigration } from './completionStorage';
+import { migrateHabitArray } from './migrateHabits';
 
 const STORAGE_KEY = 'habit-forge';
 const INITIALIZED_KEY = 'habit-forge-initialized';
@@ -110,15 +112,17 @@ function isHabit(value: unknown): value is Habit {
 }
 
 function migrateLegacyHabit(
-  legacy: LegacyHabit,
+  legacy: Record<string, unknown>,
   index: number,
 ): Habit | null {
-  if (!legacy.name?.trim()) {
+  const rawName = legacy.name;
+
+  if (typeof rawName !== 'string' || !rawName.trim()) {
     return null;
   }
 
   const now = new Date().toISOString();
-  const name = legacy.name.trim();
+  const name = rawName.trim();
   const lowerName = name.toLowerCase();
 
   let category: HabitCategory = 'other';
@@ -135,18 +139,21 @@ function migrateLegacyHabit(
     verificationMethod = 'kaggle';
   }
 
+  const legacyHabit = legacy as LegacyHabit;
+
   return {
-    id: `migrated-${legacy.id ?? index}-${Date.now()}`,
+    id: `migrated-${legacyHabit.id ?? index}-${Date.now()}`,
     name,
     description: '',
     category,
     minimumRequirement: 1,
-    website: legacy.site ?? '',
-    scheduledTime: legacy.time ?? '21:00',
+    website: typeof legacyHabit.site === 'string' ? legacyHabit.site : '',
+    scheduledTime: typeof legacyHabit.time === 'string' ? legacyHabit.time : '21:00',
     activeDays:
-      Array.isArray(legacy.days) &&
-      legacy.days.length > 0
-        ? legacy.days
+      Array.isArray(legacyHabit.days) &&
+      legacyHabit.days.length > 0 &&
+      legacyHabit.days.every((day) => Number.isInteger(day) && day >= 0 && day <= 6)
+        ? legacyHabit.days
         : [0, 1, 2, 3, 4, 5, 6],
     mandatory: true,
     verificationMethod,
@@ -156,42 +163,11 @@ function migrateLegacyHabit(
   };
 }
 
-function migrateData(
-  parsed: unknown,
-): Habit[] | null {
-  if (!Array.isArray(parsed)) {
-    return null;
-  }
-
-  if (parsed.every(isHabit)) {
-    return parsed;
-  }
-
-  const migrated = parsed
-    .map((item, index) =>
-      migrateLegacyHabit(
-        item as LegacyHabit,
-        index,
-      ),
-    )
-    .filter(
-      (habit): habit is Habit =>
-        habit !== null,
-    );
-
-  return migrated.length > 0
-    ? migrated
-    : [];
-}
-
 export function loadHabits(): Habit[] {
+  const initialized = localStorage.getItem(INITIALIZED_KEY);
+  const saved = localStorage.getItem(STORAGE_KEY);
+
   try {
-    const initialized =
-      localStorage.getItem(INITIALIZED_KEY);
-
-    const saved =
-      localStorage.getItem(STORAGE_KEY);
-
     // First-ever launch.
     if (!initialized && !saved) {
       const defaults = createDefaultHabits();
@@ -211,25 +187,45 @@ export function loadHabits(): Habit[] {
 
     // Existing user with saved data.
     if (saved) {
-      const parsed: unknown =
-        JSON.parse(saved);
+      const parsed: unknown = JSON.parse(saved);
+      const migration = migrateHabitArray(parsed, isHabit, migrateLegacyHabit);
 
-      const habits = migrateData(parsed);
-
-      if (habits) {
+      if (migration.status === 'current') {
         localStorage.setItem(
           INITIALIZED_KEY,
           'true',
         );
 
-        return habits;
+        return migration.habits;
       }
+
+      if (migration.status === 'migrated') {
+        backupHabitDataBeforeMigration(saved);
+
+        localStorage.setItem(
+          STORAGE_KEY,
+          JSON.stringify(migration.habits),
+        );
+
+        localStorage.setItem(
+          INITIALIZED_KEY,
+          'true',
+        );
+
+        return migration.habits;
+      }
+
+      backupHabitDataBeforeMigration(saved);
     }
 
     // User has initialized the app but currently
-    // has zero habits.
+    // has zero habits, or saved data was unsafe.
     return [];
   } catch {
+    if (saved) {
+      backupHabitDataBeforeMigration(saved);
+    }
+
     return [];
   }
 }
