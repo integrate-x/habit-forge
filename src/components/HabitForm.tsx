@@ -43,6 +43,8 @@ export default function HabitForm({
   const [website, setWebsite] = useState('');
   const [scheduledTime, setScheduledTime] = useState('21:00');
   const [mandatory, setMandatory] = useState(true);
+  const [verificationUsername, setVerificationUsername] = useState('');
+  const [activeDays, setActiveDays] = useState<number[]>([0, 1, 2, 3, 4, 5, 6]);
   const [verificationMethod, setVerificationMethod] =
     useState<VerificationMethod>('manual');
 
@@ -59,6 +61,8 @@ export default function HabitForm({
     setWebsite(editingHabit.website);
     setScheduledTime(editingHabit.scheduledTime);
     setMandatory(editingHabit.mandatory);
+    setVerificationUsername(editingHabit.verificationUsername || '');
+    setActiveDays(editingHabit.activeDays);
     setVerificationMethod(editingHabit.verificationMethod);
   }, [editingHabit]);
 
@@ -70,13 +74,16 @@ export default function HabitForm({
     setWebsite('');
     setScheduledTime('21:00');
     setMandatory(true);
+    setVerificationUsername('');
+    setActiveDays([0, 1, 2, 3, 4, 5, 6]);
     setVerificationMethod('manual');
   };
 
   const handleSubmit = () => {
     const trimmedName = name.trim();
 
-    if (!trimmedName) {
+    if (!trimmedName || !activeDays.length || !Number.isFinite(minimumRequirement) || minimumRequirement < 1 || !/^([01]\d|2[0-3]):[0-5]\d$/.test(scheduledTime)) {
+      alert('Provide a name, a valid time, a positive requirement, and at least one active day.');
       return;
     }
 
@@ -93,6 +100,17 @@ export default function HabitForm({
     }
 
     const now = new Date().toISOString();
+    let normalizedWebsite = '';
+    if (website.trim()) {
+      try {
+        const url = new URL(website.includes('://') ? website.trim() : `https://${website.trim()}`);
+        if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password) throw new Error('Unsafe URL');
+        normalizedWebsite = url.href;
+      } catch {
+        alert('Enter an HTTP(S) website URL without embedded credentials.');
+        return;
+      }
+    }
 
     if (editingHabit && onUpdate) {
       onUpdate({
@@ -104,10 +122,12 @@ export default function HabitForm({
           1,
           minimumRequirement,
         ),
-        website: website.trim(),
+        website: normalizedWebsite,
         scheduledTime,
+        activeDays,
         mandatory,
         verificationMethod,
+        verificationUsername: verificationUsername.trim(),
         updatedAt: now,
       });
 
@@ -123,11 +143,12 @@ export default function HabitForm({
         1,
         minimumRequirement,
       ),
-      website: website.trim(),
+      website: normalizedWebsite,
       scheduledTime,
-      activeDays: [0, 1, 2, 3, 4, 5, 6],
+      activeDays,
       mandatory,
       verificationMethod,
+      verificationUsername: verificationUsername.trim(),
       paused: false,
       createdAt: now,
       updatedAt: now,
@@ -142,6 +163,17 @@ export default function HabitForm({
       <h2>{editingHabit ? 'Edit habit' : 'Add habit'}</h2>
 
       <div className="form">
+        {verificationMethod === 'github' && <input aria-label="GitHub username" placeholder="GitHub username" value={verificationUsername}
+          onChange={e => setVerificationUsername(e.target.value)} />}
+        {verificationMethod !== 'manual' && <p className="muted">{verificationMethod === 'github'
+          ? 'Verification counts public pushes, opened pull requests, and opened issues. Private activity is not checked.'
+          : 'Automatic verification for this provider is not available yet. Completions are recorded as manual.'}</p>}
+        <fieldset className="weekdays"><legend>Active days</legend>
+          {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((label, day) => <label key={day}>
+            <input type="checkbox" checked={activeDays.includes(day)} onChange={e => setActiveDays(current =>
+              e.target.checked ? [...current, day].sort() : current.filter(item => item !== day))} />{label}
+          </label>)}
+        </fieldset>
         <input
           placeholder="Habit name"
           value={name}
@@ -242,3 +274,4 @@ export default function HabitForm({
     </section>
   );
 }
+

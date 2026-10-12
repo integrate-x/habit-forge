@@ -106,6 +106,7 @@ function isHabit(value: unknown): value is Habit {
       habit.verificationMethod,
     ) &&
     typeof habit.paused === 'boolean' &&
+    (habit.verificationUsername === undefined || typeof habit.verificationUsername === 'string') &&
     typeof habit.createdAt === 'string' &&
     typeof habit.updatedAt === 'string'
   );
@@ -243,3 +244,4 @@ export function saveHabits(
     'true',
   );
 }
+
