@@ -13,6 +13,7 @@ Local-first desktop productivity project.
 - Minimal completion snapshot
 - LocalStorage only; no backend/database/account
 - Chrome Extension MV3 scaffold with scheduler alarm
+- Extension bridge that syncs the dashboard's minimal local state into `chrome.storage.local`
 
 ## Run dashboard
 ```bash
@@ -36,8 +37,7 @@ npm run build
 Chrome → Extensions → Developer mode → Load unpacked → select `extension/`.
 
 ## Next implementation steps
-1. Connect extension to local app state.
-2. Add configurable blocked websites.
-3. Implement daily schedules and automatic site opening.
-4. Add real completion verification for GitHub/LeetCode/Kaggle.
-5. Add Tauri desktop shell only after browser MVP works.
+1. Add configurable blocked websites.
+2. Implement daily schedules and automatic site opening.
+3. Add real completion verification for GitHub/LeetCode/Kaggle.
+4. Add Tauri desktop shell only after browser MVP works.

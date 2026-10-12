@@ -4,6 +4,8 @@ import test from 'node:test';
 const { getHabitStreak, isCompletedOn, localDateKey, recordCompletion } = await import('./completions.ts');
 const { migrateHabitArray } = await import('./migrateHabits.ts');
 
+const { createExtensionSnapshot } = await import('./extensionBridge.ts');
+
 const habit = { id: 'h1', activeDays: [1, 2, 3, 4, 5] };
 const event = (localDate) => ({ id: localDate, habitId: 'h1', localDate, completedAt: `${localDate}T12:00:00.000Z`, source: 'manual' });
 
@@ -45,4 +47,30 @@ test('migration preserves valid current records in a mixed array', () => {
 test('migration refuses unknown records instead of silently dropping them', () => {
   const result = migrateHabitArray([{ name: 'Modern but incomplete' }], () => false, () => null);
   assert.equal(result.status, 'unsafe');
+});
+
+
+test('extension snapshot exposes minimal synchronized habit state', () => {
+  const habitRecord = {
+    id: 'h1',
+    name: 'Read',
+    description: 'Private notes stay in the app',
+    category: 'learning',
+    minimumRequirement: 1,
+    website: 'https://example.com',
+    scheduledTime: '20:00',
+    activeDays: [1],
+    mandatory: true,
+    verificationMethod: 'manual',
+    paused: false,
+    createdAt: 'now',
+    updatedAt: 'now',
+  };
+  const snapshot = createExtensionSnapshot([habitRecord], [event('2026-10-12')], new Date(2026, 9, 12, 10));
+
+  assert.equal(snapshot.version, 1);
+  assert.equal(snapshot.today, '2026-10-12');
+  assert.equal(snapshot.habits[0].completedToday, true);
+  assert.equal(snapshot.habits[0].currentStreak, 1);
+  assert.equal('description' in snapshot.habits[0], false);
 });
