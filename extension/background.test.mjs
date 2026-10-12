@@ -12,10 +12,10 @@ test('background sync, tick deduplication, completion unlock, and sender validat
     runtime: { id: 'extension-id', getURL: path => `chrome-extension://extension-id/${path}`, onInstalled: listen('install'), onStartup: listen('startup'), onMessage: listen('message') },
     alarms: { create: async () => {}, onAlarm: listen('alarm') },
     action: { onClicked: listen('click') },
-    storage: { local: {
+    storage: { onChanged: listen('storage'), local: {
       get: async () => structuredClone(state),
       set: async data => Object.assign(state, structuredClone(data)),
-      remove: async key => { delete state[key]; },
+      remove: async key => { for (const item of Array.isArray(key) ? key : [key]) delete state[item]; },
     } },
     declarativeNetRequest: {
       getDynamicRules: async () => rules,

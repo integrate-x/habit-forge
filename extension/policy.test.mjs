@@ -5,13 +5,16 @@ import { defaultSettings } from '../src/lib/settings.ts';
 
 const now = new Date(2026, 9, 12, 21);
 function snapshot() {
-  return { version: 1, exportedAt: now.toISOString(), settings: { ...defaultSettings(), blockedSites: ['youtube.com'], blockingEnabled: true },
+  return { version: 1, exportedAt: now.toISOString(), today: '2026-10-12', localTime: '21:00',
+    settings: { ...defaultSettings(), blockedSites: ['youtube.com'], blockingEnabled: true },
     habits: [{ id: 'h1', name: 'Code', mandatory: true, paused: false, activeDays: [1], scheduledTime: '20:00', website: 'https://github.com' }],
     completions: [] };
 }
 test('blocking is opt-in and only starts when mandatory habits are due', () => {
   const state = snapshot();
+  state.localTime = '19:00';
   assert.equal(blockingRules(state, new Date(2026, 9, 12, 19)).length, 0);
+  state.localTime = '21:00';
   assert.equal(blockingRules(state, now).length, 1);
   state.settings.blockingEnabled = false;
   assert.equal(blockingRules(state, now).length, 0);
@@ -31,7 +34,9 @@ test('completed, paused, off-day and optional habits do not enforce blocking', (
   state.habits[0].paused = true;
   assert.deepEqual(dueHabits(state, now), []);
   state.habits[0].paused = false;
+  state.today = '2026-10-13';
   assert.deepEqual(dueHabits(state, new Date(2026, 9, 13, 21)), []);
+  state.today = '2026-10-12';
   state.habits[0].mandatory = false;
   assert.equal(blockingRules(state, now).length, 0);
 });
@@ -40,7 +45,22 @@ test('completion status is recalculated after midnight, not cached completedToda
   state.habits[0].activeDays = [1, 2];
   state.habits[0].completedToday = true;
   state.completions.push({ habitId: 'h1', localDate: '2026-10-12' });
+  state.today = '2026-10-13';
   assert.equal(dueHabits(state, new Date(2026, 9, 13, 21)).length, 1);
+});
+test('extension enforcement follows snapshot local date instead of worker timezone', () => {
+  const state = snapshot();
+  state.today = '2026-10-13';
+  state.localTime = '00:14';
+  state.habits[0].activeDays = [2];
+  state.habits[0].scheduledTime = '00:00';
+  state.completions.push({ habitId: 'h1', localDate: '2026-10-13' });
+  assert.deepEqual(dueHabits(state, new Date('2026-10-12T18:44:00Z')), []);
+  state.completions = [];
+  state.settings.graceDays = [{ habitId: 'h1', localDate: '2026-10-13' }];
+  assert.deepEqual(dueHabits(state, new Date('2026-10-12T18:44:00Z')), []);
+  state.settings.graceDays = [];
+  assert.equal(dueHabits(state, new Date('2026-10-12T18:44:00Z')).length, 1);
 });
 test('Exam Mode and Grace Days disable enforcement without creating completions', () => {
   const state = snapshot();

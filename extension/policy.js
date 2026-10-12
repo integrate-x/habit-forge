@@ -19,7 +19,9 @@ export function domain(value) {
 
 export function isSnapshot(state) {
   if (!state || state.version !== 1 || !Number.isFinite(Date.parse(state.exportedAt)) ||
-    !Array.isArray(state.habits) || !Array.isArray(state.completions)) return false;
+    !Array.isArray(state.habits) || !Array.isArray(state.completions) ||
+    (state.today !== undefined && !/^\d{4}-\d{2}-\d{2}$/.test(state.today)) ||
+    (state.localTime !== undefined && !/^([01]\d|2[0-3]):[0-5]\d$/.test(state.localTime))) return false;
   const settings = state.settings;
   return (!settings || (settings.version === 1 &&
     ['blockingEnabled', 'autoOpen', 'notifications', 'examMode'].every(key => typeof settings[key] === 'boolean') &&
@@ -34,11 +36,18 @@ export function isSnapshot(state) {
       /^\d{4}-\d{2}-\d{2}$/.test(event.localDate));
 }
 
+function localDayOfWeek(localDate) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(localDate)) return null;
+  const [year, month, day] = localDate.split('-').map(Number);
+  return new Date(Date.UTC(year, month - 1, day)).getUTCDay();
+}
+
 export function dueHabits(state, now = new Date()) {
   if (!state || state.settings?.examMode) return [];
-  const today = dateKey(now);
-  const time = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-  return state.habits.filter(habit => !habit.paused && habit.activeDays.includes(now.getDay()) &&
+  const today = state.today || dateKey(now);
+  const dayOfWeek = localDayOfWeek(today) ?? now.getDay();
+  const time = state.localTime || `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+  return state.habits.filter(habit => !habit.paused && habit.activeDays.includes(dayOfWeek) &&
     habit.scheduledTime <= time &&
     !state.completions.some(event => event.habitId === habit.id && event.localDate === today) &&
     !state.settings?.graceDays.some(day => day.habitId === habit.id && day.localDate === today));

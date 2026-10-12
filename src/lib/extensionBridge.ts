@@ -31,6 +31,7 @@ export interface ExtensionStateSnapshot {
   version: 1;
   exportedAt: string;
   today: string;
+  localTime: string;
   habits: ExtensionHabitSnapshot[];
   completions: ExtensionCompletionSnapshot[];
   settings: Settings;
@@ -49,6 +50,7 @@ export function createExtensionSnapshot(
     version: 1,
     exportedAt: now.toISOString(),
     today,
+    localTime: `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`,
     settings: {
       ...settings,
       graceDays: settings.graceDays.filter(day => day.localDate === today)
