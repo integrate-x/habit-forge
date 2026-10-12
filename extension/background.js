@@ -2,6 +2,7 @@ import { blockingRules, dateKey, dueHabits, isSnapshot, safeWebsite } from './po
 import { readDesktopSnapshot } from './desktop.js';
 
 const STATE_KEY = 'habitForgeState';
+const RULE_UPDATE_KEY = 'lastRuleUpdate';
 let queue = Promise.resolve();
 function enqueue(task) {
   const job = queue.then(task);
@@ -10,6 +11,25 @@ function enqueue(task) {
     await chrome.storage.local.set({ habitForgeError: String(error.message || error) });
   });
   return job;
+}
+
+async function rebuildBlockingRules(state = null, now = new Date()) {
+  if (!state) {
+    const data = await chrome.storage.local.get(STATE_KEY);
+    state = isSnapshot(data[STATE_KEY]) ? data[STATE_KEY] : null;
+  }
+
+  const existing = await chrome.declarativeNetRequest.getDynamicRules();
+  const removeRuleIds = existing.map(rule => rule.id);
+  const addRules = blockingRules(state, now);
+  await chrome.declarativeNetRequest.updateDynamicRules({ removeRuleIds, addRules });
+  await chrome.storage.local.set({
+    [RULE_UPDATE_KEY]: {
+      updatedAt: new Date().toISOString(),
+      removed: removeRuleIds,
+      addedCount: addRules.length,
+    },
+  });
 }
 
 async function tick() {
@@ -23,10 +43,7 @@ async function tick() {
   }
   const state = isSnapshot(data[STATE_KEY]) ? data[STATE_KEY] : null;
   const now = new Date();
-  const existing = await chrome.declarativeNetRequest.getDynamicRules();
-  await chrome.declarativeNetRequest.updateDynamicRules({
-    removeRuleIds: existing.map(rule => rule.id), addRules: blockingRules(state, now),
-  });
+  await rebuildBlockingRules(state, now);
   const today = dateKey(now);
   const ledger = data.schedulerLedger?.date === today ? data.schedulerLedger : { date: today, actions: {} };
   for (const habit of dueHabits(state, now)) {
@@ -63,6 +80,9 @@ chrome.runtime.onInstalled.addListener(() => { void enqueue(start); });
 chrome.runtime.onStartup.addListener(() => { void enqueue(start); });
 chrome.alarms.onAlarm.addListener(alarm => {
   if (alarm.name === 'habit-forge-tick') void enqueue(tick);
+});
+chrome.storage.onChanged.addListener((changes, area) => {
+  if (area === 'local' && changes[STATE_KEY]) void enqueue(() => rebuildBlockingRules());
 });
 
 chrome.runtime.onMessage.addListener((message, sender, respond) => {
