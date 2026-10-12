@@ -99,7 +99,7 @@ Chrome remains responsible for website blocking, browser opening and notificatio
 
 Use Export backup in the browser and Import backup in desktop to migrate your records. Imports validate the schema and show a preview before Restore backup replaces data. A raw recovery copy is saved under `habit-forge-before-restore-*` before writes; failed writes roll back existing data. Unknown schema versions and duplicates are rejected. Desktop export uses a native save dialog. Neither pairing tokens nor provider credentials are included.
 
-The Desktop checks workflow tests the native bridge/provider parsers on Linux, builds the Windows NSIS installer, and uploads a `windows-installer` artifact. These are development installers without signing or automatic updates. Install/launch testing on a real Windows machine, live authenticated Kaggle checks, Linux/macOS bundles and signing remain release work.
+The Desktop checks workflow tests the native bridge/provider parsers on Linux, builds the Windows NSIS installer, launches the built executable to verify renderer IPC and authenticated snapshot delivery, and uploads a `windows-installer` artifact. Native dependencies are pinned in `src-tauri/Cargo.lock`. These are development installers without signing or automatic updates. Installer installation and interactive OS testing on a real Windows machine, live authenticated Kaggle checks, Linux/macOS bundles and signing remain release work.
 
 ## Remaining release work
 - Authenticated Kaggle acceptance testing with a configured account; live LeetCode activity checks and monitoring for upstream contract changes.

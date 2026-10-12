@@ -14,10 +14,7 @@ jobs:
         with:
           workspaces: src-tauri
           cache-on-failure: true
-      - run: cargo test --manifest-path src-tauri/Cargo.toml -p habit-forge-core
-      - name: Export resolved native dependency lock
-        if: always()
-        run: node -e "console.log('NATIVE_LOCKFILE_BASE64:'+require('fs').readFileSync('src-tauri/Cargo.lock').toString('base64'))"
+      - run: cargo test --manifest-path src-tauri/Cargo.toml -p habit-forge-core --locked
   windows:
     needs: native
     runs-on: windows-latest
@@ -34,8 +31,9 @@ jobs:
           workspaces: src-tauri
           cache-on-failure: true
       - run: npm ci
-      - run: cargo test --manifest-path src-tauri/Cargo.toml -p habit-forge-core
+      - run: cargo test --manifest-path src-tauri/Cargo.toml -p habit-forge-core --locked
       - run: npm run desktop:build -- --bundles nsis
+      - run: node scripts/desktop-smoke.mjs
       - uses: actions/upload-artifact@v4
         with:
           name: windows-installer

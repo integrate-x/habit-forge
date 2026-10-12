@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { isDesktop } from '../lib/desktop';
 import type {
   Habit,
   HabitCategory,
@@ -169,7 +170,9 @@ export default function HabitForm({
           ? 'Verification counts public pushes, opened pull requests, and opened issues. Private activity is not checked.'
           : verificationMethod === 'leetcode'
             ? 'Experimental verification: distinct problems accepted today from public recent activity.'
-            : 'Verification counts owned notebooks with a latest run today. Configure Kaggle credentials in the local verification service.'}</p>}
+            : isDesktop()
+              ? 'Verification counts owned notebooks with a latest run today. Configure Kaggle credentials in the desktop environment.'
+              : 'Verification counts owned notebooks with a latest run today. Configure Kaggle credentials in the local verification service.'}</p>}
         <fieldset className="weekdays"><legend>Active days</legend>
           {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((label, day) => <label key={day}>
             <input type="checkbox" checked={activeDays.includes(day)} onChange={e => setActiveDays(current =>
