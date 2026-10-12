@@ -1,0 +1,13 @@
+[package]
+name = "habit-forge-core"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+chrono = "0.4"
+chrono-tz = "0.10"
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tiny_http = "0.12"
+uuid = { version = "1", features = ["v4"] }

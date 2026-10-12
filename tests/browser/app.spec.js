@@ -233,3 +233,86 @@ test('a habit edited while provider verification is in flight receives no stale 
   await expect(page.getByRole('status').filter({ hasText: 'Habit or date changed while checking' })).toBeVisible();
   expect(await stored(page, 'habit-forge-completions')).toHaveLength(0);
 });
+
+test('desktop pairing protects the selected data source and unpairs back to browser mode', async ({ page, worker, context }, testInfo) => {
+  await seed(page);
+  await openApp(page);
+  const token = (testInfo.project.name === 'desktop' ? 'a' : 'b').repeat(64);
+  const snapshot = await stored(page, 'habit-forge-extension-snapshot');
+  snapshot.habits[0].id = 'desktop-only';
+  snapshot.habits[0].name = 'Desktop habit';
+  snapshot.settings.blockingEnabled = true;
+  const update = () => page.request.post('http://127.0.0.1:4180/desktop-test-state', { data: { token, snapshot } });
+  await update();
+  const popup = await context.newPage();
+  await popup.goto(`chrome-extension://${worker.url().split('/')[2]}/popup.html`);
+  await popup.getByLabel('Desktop pairing token').fill('c'.repeat(64));
+  await popup.getByRole('button', { name: 'Pair desktop', exact: true }).click();
+  await expect(popup.getByRole('status').filter({ hasText: 'not accepted' })).toBeVisible();
+  await popup.getByLabel('Desktop pairing token').fill(token);
+  await popup.getByRole('button', { name: 'Pair desktop', exact: true }).click();
+  await expect(popup.getByRole('status').filter({ hasText: 'Desktop paired' })).toBeVisible();
+  await expect.poll(() => ruleCount(worker)).toBe(1);
+  await routine(page).getByRole('button', { name: 'Complete', exact: true }).click();
+  await expect(page.getByRole('status').filter({ hasText: 'paired with desktop' })).toBeVisible();
+  const state = await worker.evaluate(async () => (await chrome.storage.local.get('habitForgeState')).habitForgeState);
+  expect(state.habits[0].id).toBe('desktop-only');
+  expect(state.completions).toHaveLength(0);
+  snapshot.completions.push({ habitId:'desktop-only', localDate:snapshot.today, completedAt:new Date().toISOString(), source:'manual' });
+  await update();
+  await popup.getByLabel('Desktop pairing token').fill(token);
+  await popup.getByRole('button', { name: 'Pair desktop', exact: true }).click();
+  await expect.poll(() => ruleCount(worker)).toBe(0);
+  await popup.getByRole('button', { name: 'Use browser dashboard' }).click();
+  await expect(popup.getByRole('status').filter({ hasText: 'Browser mode' })).toBeVisible();
+  expect(await worker.evaluate(async () => Boolean((await chrome.storage.local.get('desktopToken')).desktopToken))).toBe(false);
+});
+
+test('backup import requires explicit restore and retains a recovery copy', async ({ page }) => {
+  await seed(page);
+  await openApp(page);
+  await page.getByLabel('Import backup').setInputFiles({ name:'invalid.json', mimeType:'application/json', buffer:Buffer.from('{"version":99}') });
+  await expect(page.getByRole('status').filter({ hasText:'Unsupported or invalid backup' })).toBeVisible();
+  await expect(routine(page).getByText('Read', { exact:true })).toBeVisible();
+  const backup = { version:1, exportedAt:new Date().toISOString(), habits:[habit({ name:'Imported habit' })], events:[], settings:settings() };
+  await page.getByLabel('Import backup').setInputFiles({ name:'backup.json', mimeType:'application/json', buffer:Buffer.from(JSON.stringify(backup)) });
+  await expect(page.getByRole('button', { name:'Restore backup' })).toBeVisible();
+  await expect(routine(page).getByText('Read', { exact:true })).toBeVisible();
+  await page.getByRole('button', { name:'Restore backup' }).click();
+  await expect(routine(page).getByText('Imported habit', { exact:true })).toBeVisible();
+  const saved = await page.evaluate(() => {
+    const key = Object.keys(localStorage).find(key => key.startsWith('habit-forge-before-restore-'));
+    return JSON.parse(localStorage.getItem(key));
+  });
+  expect(JSON.parse(saved['habit-forge'])[0].name).toBe('Read');
+  await page.reload();
+  await expect(routine(page).getByText('Imported habit', { exact:true })).toBeVisible();
+});
+
+test('desktop UI routes verification, snapshots and backup exports through native commands', async ({ page }) => {
+  await seed(page, { 'habit-forge':JSON.stringify([habit({ verificationMethod:'leetcode', verificationUsername:'coder' })]) });
+  await page.addInitScript(() => {
+    window.nativeCalls = [];
+    window.__TAURI_INTERNALS__ = { invoke: async (command, args) => {
+      window.nativeCalls.push({ command, args });
+      if (command === 'publish_desktop_snapshot') return { connected:true };
+      if (command === 'desktop_pairing_info') return { token:'a'.repeat(64), port:5175 };
+      if (command === 'save_backup') return true;
+      if (command === 'verify_native') return { ...args.request, count:1, unit:'distinct accepted problems' };
+      throw new Error('Unexpected native command');
+    } };
+  });
+  await page.goto('/');
+  await expect(page.getByRole('status').filter({ hasText:'Chrome companion connected' })).toBeVisible();
+  await expect(page.getByLabel('Pairing token')).toHaveValue('a'.repeat(64));
+  await expect(page.getByRole('heading', { name:'Focus controls' })).toBeVisible();
+  await routine(page).getByRole('button', { name:'Verify LeetCode' }).click();
+  await expect(page.getByRole('status').filter({ hasText:'verified 1 distinct accepted problems' })).toBeVisible();
+  await page.getByRole('button', { name:'Export backup' }).click();
+  await expect(page.getByRole('status').filter({ hasText:'Backup saved' })).toBeVisible();
+  const calls = await page.evaluate(() => window.nativeCalls);
+  expect(calls.some(call => call.command === 'verify_native')).toBe(true);
+  const exported = calls.find(call => call.command === 'save_backup').args.data;
+  expect(exported.includes('a'.repeat(64))).toBe(false);
+  expect(JSON.parse(exported).events[0].source).toBe('leetcode');
+});

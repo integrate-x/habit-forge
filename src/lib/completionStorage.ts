@@ -3,7 +3,7 @@ import type { CompletionEvent } from '../../shared/types';
 const EVENTS_KEY = 'habit-forge-completions';
 const EVENTS_BACKUP_KEY = 'habit-forge-completions-recovery';
 
-function isCompletionEvent(value: unknown): value is CompletionEvent {
+export function isCompletionEvent(value: unknown): value is CompletionEvent {
   if (!value || typeof value !== 'object') return false;
   const event = value as Partial<CompletionEvent>;
   return typeof event.id === 'string' && event.id.length > 0 &&

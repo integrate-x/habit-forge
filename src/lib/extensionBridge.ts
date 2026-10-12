@@ -49,7 +49,11 @@ export function createExtensionSnapshot(
     version: 1,
     exportedAt: now.toISOString(),
     today,
-    settings,
+    settings: {
+      ...settings,
+      graceDays: settings.graceDays.filter(day => day.localDate === today)
+        .map(day => ({ habitId: day.habitId, localDate: day.localDate })),
+    },
     habits: habits.map((habit) => {
       const streak = getHabitStreak(habit, events, now, settings.graceDays.filter(day => day.habitId === habit.id).map(day => day.localDate));
 
@@ -67,7 +71,7 @@ export function createExtensionSnapshot(
         longestStreak: streak.longest,
       };
     }),
-    completions: events.map((event) => ({
+    completions: events.filter(event => event.localDate === today).map((event) => ({
       habitId: event.habitId,
       completedAt: event.completedAt,
       localDate: event.localDate,

@@ -66,11 +66,14 @@ test('extension snapshot exposes minimal synchronized habit state', () => {
     createdAt: 'now',
     updatedAt: 'now',
   };
-  const snapshot = createExtensionSnapshot([habitRecord], [event('2026-10-12')], new Date(2026, 9, 12, 10));
+  const snapshot = createExtensionSnapshot([habitRecord], [event('2026-10-11'), event('2026-10-12')], new Date(2026, 9, 12, 10));
 
   assert.equal(snapshot.version, 1);
   assert.equal(snapshot.today, '2026-10-12');
   assert.equal(snapshot.habits[0].completedToday, true);
   assert.equal(snapshot.habits[0].currentStreak, 1);
   assert.equal('description' in snapshot.habits[0], false);
+  assert.equal(snapshot.completions.length, 1);
+  assert.equal(snapshot.completions[0].localDate, snapshot.today);
 });
+

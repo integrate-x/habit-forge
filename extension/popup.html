@@ -1,0 +1,16 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Habit Forge companion</title><link rel="stylesheet" href="popup.css"></head>
+<body>
+  <h1>Habit Forge</h1>
+  <p id="mode" role="status">Loading companion...</p>
+  <form id="pair">
+    <label for="token">Desktop pairing token</label>
+    <input id="token" type="password" autocomplete="off" required>
+    <button>Pair desktop</button>
+  </form>
+  <button id="browser" type="button">Use browser dashboard</button>
+  <p id="result" role="status"></p>
+  <script type="module" src="popup.js"></script>
+</body>
+</html>

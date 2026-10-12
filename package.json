@@ -17,6 +17,7 @@
     "test": "node --experimental-strip-types --test src/lib/*.test.mjs extension/*.test.mjs server/*.test.mjs"
   },
   "dependencies": {
+    "@tauri-apps/api": "^2.12.3",
     "@vitejs/plugin-react": "latest",
     "react": "latest",
     "react-dom": "latest",

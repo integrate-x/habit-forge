@@ -5,12 +5,16 @@ import HabitList from './components/HabitList';
 import { loadHabits, saveHabits } from './lib/storage';
 import { loadCompletionEvents, saveCompletionEvents } from './lib/completionStorage';
 import { recordCompletion, localDateKey } from './lib/completions';
-import { publishExtensionSnapshot } from './lib/extensionBridge';
+import { publishExtensionSnapshot, createExtensionSnapshot } from './lib/extensionBridge';
 import { loadSettings, saveSettings } from './lib/settings';
 import SettingsPanel from './components/SettingsPanel';
 import Analytics from './components/Analytics';
 import { verifyGitHub } from './lib/verification';
 import { verifyProvider } from './lib/providerVerification';
+import { isDesktop, publishDesktopSnapshot } from './lib/desktop';
+import { createBackup, restoreBackup } from './lib/backup';
+import DataTransfer from './components/DataTransfer';
+import DesktopPairing from './components/DesktopPairing';
 
 export default function App() {
   const [habits, setHabits] = useState<Habit[]>(loadHabits);
@@ -19,9 +23,9 @@ export default function App() {
   const [settings, setSettings] = useState(loadSettings);
   const [now, setNow] = useState(() => new Date());
   const [error, setError] = useState('');
-  const desktop = '__TAURI_INTERNALS__' in window;
+  const desktop = isDesktop();
   const [bridgeStatus, setBridgeStatus] = useState(desktop
-    ? 'Desktop shell: browser enforcement is only available in the browser companion.'
+    ? 'Desktop companion not connected'
     : 'Extension not connected');
   const [verifying, setVerifying] = useState(false);
   const [verificationStatus, setVerificationStatus] = useState('');
@@ -35,13 +39,19 @@ export default function App() {
     return () => { window.clearInterval(timer); window.removeEventListener('habit-forge:bridge-status', status); };
   }, []);
   useEffect(() => {
+    let active = true;
     try {
       saveHabits(habits); saveCompletionEvents(events); saveSettings(settings);
-      publishExtensionSnapshot(habits, events, settings);
+      if (desktop) {
+        publishDesktopSnapshot(createExtensionSnapshot(habits, events, now, settings)).then(info => {
+          if (active) setBridgeStatus(info.connected ? 'Chrome companion connected' : 'Pair Chrome companion to enable browser focus controls');
+        }).catch(() => { if (active) setBridgeStatus('Desktop companion connection is unavailable'); });
+      } else publishExtensionSnapshot(habits, events, settings);
       setError('');
     } catch {
       setError('Could not save data. Check browser storage permissions or available space. Keep this page open until resolved.');
     }
+    return () => { active = false; };
   }, [habits, events, settings, now]);
 
   const addHabit = (habit: Habit) => setHabits(current => [...current, habit]);
@@ -106,8 +116,13 @@ export default function App() {
     <HabitList habits={habits} events={events} onToggle={toggleComplete}
       onDelete={deleteHabit} onPause={togglePause} onEdit={setEditingHabit}
       graceDays={settings.graceDays} onGrace={toggleGrace} now={now} onVerify={verifyHabit} verifying={verifying} />
-    {!desktop && <SettingsPanel settings={settings} onChange={setSettings} />}
+    {desktop && <DesktopPairing />}
+    <SettingsPanel settings={settings} onChange={setSettings} />
     <Analytics habits={habits} events={events} settings={settings} now={now} />
+    <DataTransfer backup={createBackup(habits, events, settings)} onRestore={backup => {
+      restoreBackup(backup);
+      setHabits(backup.habits); setEvents(backup.events); setSettings(backup.settings); setEditingHabit(null);
+    }} />
   </main>;
 }
 
