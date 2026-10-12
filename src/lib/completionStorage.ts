@@ -10,7 +10,7 @@ function isCompletionEvent(value: unknown): value is CompletionEvent {
     typeof event.habitId === 'string' && event.habitId.length > 0 &&
     typeof event.completedAt === 'string' && !Number.isNaN(Date.parse(event.completedAt)) &&
     typeof event.localDate === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(event.localDate) &&
-    event.source === 'manual';
+    (event.source === 'manual' || event.source === 'github');
 }
 
 export function loadCompletionEvents(): CompletionEvent[] {
@@ -39,3 +39,4 @@ export function backupHabitDataBeforeMigration(raw: string): void {
   const key = 'habit-forge-recovery';
   if (!localStorage.getItem(key)) localStorage.setItem(key, raw);
 }
+

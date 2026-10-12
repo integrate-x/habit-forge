@@ -17,9 +17,11 @@ function sendSnapshot(raw) {
 
   chrome.runtime.sendMessage(
     { type: 'HABIT_FORGE_STATE', payload },
-    () => {
-      // The background worker may be restarting; ignore transient delivery errors.
-      void chrome.runtime.lastError;
+    response => {
+      const error = chrome.runtime.lastError?.message || response?.error;
+      window.dispatchEvent(new CustomEvent('habit-forge:bridge-status', {
+        detail: error ? `Extension sync failed: ${error}` : 'Extension connected',
+      }));
     },
   );
 }
@@ -29,3 +31,4 @@ window.addEventListener(STATE_EVENT, (event) => {
 });
 
 sendSnapshot(window.localStorage.getItem(SNAPSHOT_KEY));
+

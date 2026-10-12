@@ -1,100 +1,77 @@
+import { blockingRules, dateKey, dueHabits, isSnapshot, safeWebsite } from './policy.js';
+
 const STATE_KEY = 'habitForgeState';
-
-function isDateKey(value) {
-  return typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value);
+let queue = Promise.resolve();
+function enqueue(task) {
+  const job = queue.then(task);
+  queue = job.catch(async error => {
+    console.error('Habit Forge', error);
+    await chrome.storage.local.set({ habitForgeError: String(error.message || error) });
+  });
+  return job;
 }
 
-function isString(value) {
-  return typeof value === 'string';
+async function tick() {
+  const data = await chrome.storage.local.get([STATE_KEY, 'schedulerLedger']);
+  const state = isSnapshot(data[STATE_KEY]) ? data[STATE_KEY] : null;
+  const now = new Date();
+  const existing = await chrome.declarativeNetRequest.getDynamicRules();
+  await chrome.declarativeNetRequest.updateDynamicRules({
+    removeRuleIds: existing.map(rule => rule.id), addRules: blockingRules(state, now),
+  });
+  const today = dateKey(now);
+  const ledger = data.schedulerLedger?.date === today ? data.schedulerLedger : { date: today, actions: {} };
+  for (const habit of dueHabits(state, now)) {
+    const url = safeWebsite(habit.website);
+    for (const action of ['open', 'notify']) {
+      if ((action === 'open' && (!state.settings?.autoOpen || !url)) ||
+        (action === 'notify' && !state.settings?.notifications)) continue;
+      const key = `${action}:${habit.id}`;
+      if (ledger.actions[key]) continue;
+      // Persist intent first so a worker restart cannot repeatedly open tabs.
+      ledger.actions[key] = true;
+      await chrome.storage.local.set({ schedulerLedger: ledger });
+      try {
+        if (action === 'open') await chrome.tabs.create({ url, active: false });
+        else await chrome.notifications.create(`habit:${habit.id}`, {
+          type: 'basic', iconUrl: 'icon.png', title: 'Habit Forge', message: `${habit.name} is due`,
+        });
+      } catch (error) {
+        delete ledger.actions[key];
+        await chrome.storage.local.set({ schedulerLedger: ledger });
+        throw error;
+      }
+    }
+  }
+  await chrome.storage.local.remove('habitForgeError');
 }
 
-function isNumber(value) {
-  return typeof value === 'number' && Number.isFinite(value);
+async function start() {
+  await chrome.alarms.create('habit-forge-tick', { periodInMinutes: 1 });
+  await tick();
 }
-
-function isSnapshot(value) {
-  return Boolean(
-    value &&
-    typeof value === 'object' &&
-    value.version === 1 &&
-    isString(value.exportedAt) &&
-    !Number.isNaN(Date.parse(value.exportedAt)) &&
-    isDateKey(value.today) &&
-    Array.isArray(value.habits) &&
-    Array.isArray(value.completions) &&
-    value.habits.every((habit) =>
-      habit &&
-      typeof habit === 'object' &&
-      isString(habit.id) &&
-      isString(habit.name) &&
-      isString(habit.website) &&
-      isString(habit.scheduledTime) &&
-      Array.isArray(habit.activeDays) &&
-      habit.activeDays.every((day) => Number.isInteger(day) && day >= 0 && day <= 6) &&
-      typeof habit.mandatory === 'boolean' &&
-      typeof habit.paused === 'boolean' &&
-      isString(habit.verificationMethod) &&
-      typeof habit.completedToday === 'boolean' &&
-      isNumber(habit.currentStreak) &&
-      isNumber(habit.longestStreak),
-    ) &&
-    value.completions.every((event) =>
-      event &&
-      typeof event === 'object' &&
-      isString(event.habitId) &&
-      isString(event.completedAt) &&
-      !Number.isNaN(Date.parse(event.completedAt)) &&
-      isDateKey(event.localDate) &&
-      event.source === 'manual',
-    )
-  );
-}
-
-chrome.runtime.onInstalled.addListener(() => {
-  chrome.alarms.create('habit-forge-tick', { periodInMinutes: 1 });
+chrome.runtime.onInstalled.addListener(() => { void enqueue(start); });
+chrome.runtime.onStartup.addListener(() => { void enqueue(start); });
+chrome.alarms.onAlarm.addListener(alarm => {
+  if (alarm.name === 'habit-forge-tick') void enqueue(tick);
 });
 
-chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+chrome.runtime.onMessage.addListener((message, sender, respond) => {
   if (message?.type !== 'HABIT_FORGE_STATE') return false;
-
-  if (!isSnapshot(message.payload)) {
-    sendResponse({ ok: false, error: 'Invalid Habit Forge state snapshot' });
+  const url = safeWebsite(sender.url || '');
+  if (sender.id !== chrome.runtime.id || !url || !['localhost', '127.0.0.1'].includes(new URL(url).hostname) ||
+    new URL(url).protocol !== 'http:' || !isSnapshot(message.payload)) {
+    respond({ ok: false, error: 'Untrusted sender or invalid snapshot' });
     return false;
   }
-
-  chrome.storage.local.set(
-    {
-      [STATE_KEY]: {
-        ...message.payload,
-        receivedAt: new Date().toISOString(),
-      },
-    },
-    () => {
-      const error = chrome.runtime.lastError?.message;
-      sendResponse(error ? { ok: false, error } : { ok: true });
-    },
-  );
-
+  enqueue(async () => {
+    await chrome.storage.local.set({ [STATE_KEY]: { ...message.payload, receivedAt: new Date().toISOString() } });
+    await tick();
+  }).then(() => respond({ ok: true }), error => respond({ ok: false, error: String(error.message || error) }));
   return true;
 });
 
-chrome.alarms.onAlarm.addListener((alarm) => {
-  if (alarm.name !== 'habit-forge-tick') return;
-
-  chrome.storage.local.get(STATE_KEY, (result) => {
-    const state = result[STATE_KEY];
-    if (!state) return;
-
-    const dueHabits = state.habits.filter((habit) =>
-      habit.mandatory &&
-      !habit.paused &&
-      !habit.completedToday &&
-      habit.website,
-    );
-
-    console.log('Habit Forge scheduler tick', {
-      syncedAt: state.receivedAt,
-      dueHabitCount: dueHabits.length,
-    });
-  });
+chrome.action.onClicked.addListener(() => {
+  void chrome.tabs.create({ url: 'http://localhost:5173' });
 });
+

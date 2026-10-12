@@ -13,6 +13,7 @@ export interface Habit {
   activeDays: number[];
   mandatory: boolean;
   verificationMethod: VerificationMethod;
+  verificationUsername?: string;
   paused: boolean;
   createdAt: string;
   updatedAt: string;
@@ -25,5 +26,6 @@ export interface CompletionEvent {
   completedAt: string;
   /** Local YYYY-MM-DD captured when the event was created. */
   localDate: string;
-  source: 'manual';
+  source: 'manual' | 'github';
 }
+

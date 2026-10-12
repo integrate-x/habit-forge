@@ -6,14 +6,17 @@
   "permissions": [
     "storage",
     "tabs",
-    "alarms"
+    "alarms",
+    "declarativeNetRequest",
+    "notifications"
   ],
   "host_permissions": [
     "http://localhost/*",
     "http://127.0.0.1/*"
   ],
   "background": {
-    "service_worker": "background.js"
+    "service_worker": "background.js",
+    "type": "module"
   },
   "content_scripts": [
     {
@@ -31,3 +34,4 @@
     "default_title": "Habit Forge"
   }
 }
+

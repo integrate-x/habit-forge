@@ -32,6 +32,7 @@ export function recordCompletion(
   events: CompletionEvent[],
   habitId: string,
   completedAt = new Date(),
+  source: CompletionEvent['source'] = 'manual',
 ): CompletionEvent[] {
   const localDate = localDateKey(completedAt);
   if (isCompletedOn(events, habitId, localDate)) return events;
@@ -40,7 +41,7 @@ export function recordCompletion(
     habitId,
     completedAt: completedAt.toISOString(),
     localDate,
-    source: 'manual',
+    source,
   }];
 }
 
@@ -54,12 +55,14 @@ export function getHabitStreak(
   habit: Pick<Habit, 'id' | 'activeDays'>,
   events: CompletionEvent[],
   today = new Date(),
+  graceDays: string[] = [],
 ): HabitStreak {
   const activeDays = new Set(habit.activeDays);
   const completed = new Set(
     events.filter((event) => event.habitId === habit.id).map((event) => event.localDate),
   );
   const todayKey = localDateKey(today);
+  const grace = new Set(graceDays.filter(date => date <= todayKey));
 
   let current = 0;
   // An unfinished scheduled day is still in progress; begin at the prior day.
@@ -68,8 +71,8 @@ export function getHabitStreak(
     if (activeDays.has(weekday(cursor)) && !completed.has(cursor)) cursor = shiftDate(cursor, -1);
     while (true) {
       if (activeDays.has(weekday(cursor))) {
-        if (!completed.has(cursor)) break;
-        current += 1;
+        if (!completed.has(cursor) && !grace.has(cursor)) break;
+        if (completed.has(cursor)) current += 1;
       }
       cursor = shiftDate(cursor, -1);
     }
@@ -85,7 +88,7 @@ export function getHabitStreak(
     if (!previous) run = 1;
     else {
       let next = shiftDate(previous, 1);
-      while (next < date && !activeDays.has(weekday(next))) next = shiftDate(next, 1);
+      while (next < date && (!activeDays.has(weekday(next)) || grace.has(next))) next = shiftDate(next, 1);
       run = next === date ? run + 1 : 1;
     }
     longest = Math.max(longest, run);
@@ -93,3 +96,4 @@ export function getHabitStreak(
   }
   return { current, longest };
 }
+

@@ -1,5 +1,7 @@
 import type { CompletionEvent, Habit } from '../../shared/types';
 import { getHabitStreak, isCompletedOn, localDateKey } from './completions.ts';
+import { defaultSettings } from './settings.ts';
+import type { Settings } from './settings.ts';
 
 export const EXTENSION_SNAPSHOT_KEY = 'habit-forge-extension-snapshot';
 export const EXTENSION_STATE_EVENT = 'habit-forge:state';
@@ -31,6 +33,7 @@ export interface ExtensionStateSnapshot {
   today: string;
   habits: ExtensionHabitSnapshot[];
   completions: ExtensionCompletionSnapshot[];
+  settings: Settings;
 }
 
 /** Minimal, non-sensitive app state that the companion extension can consume. */
@@ -38,6 +41,7 @@ export function createExtensionSnapshot(
   habits: Habit[],
   events: CompletionEvent[],
   now = new Date(),
+  settings: Settings = defaultSettings(),
 ): ExtensionStateSnapshot {
   const today = localDateKey(now);
 
@@ -45,8 +49,9 @@ export function createExtensionSnapshot(
     version: 1,
     exportedAt: now.toISOString(),
     today,
+    settings,
     habits: habits.map((habit) => {
-      const streak = getHabitStreak(habit, events, now);
+      const streak = getHabitStreak(habit, events, now, settings.graceDays.filter(day => day.habitId === habit.id).map(day => day.localDate));
 
       return {
         id: habit.id,
@@ -74,10 +79,12 @@ export function createExtensionSnapshot(
 export function publishExtensionSnapshot(
   habits: Habit[],
   events: CompletionEvent[],
+  settings: Settings = defaultSettings(),
 ): void {
-  const snapshot = createExtensionSnapshot(habits, events);
+  const snapshot = createExtensionSnapshot(habits, events, new Date(), settings);
   const serialized = JSON.stringify(snapshot);
 
   localStorage.setItem(EXTENSION_SNAPSHOT_KEY, serialized);
   window.dispatchEvent(new CustomEvent(EXTENSION_STATE_EVENT, { detail: serialized }));
 }
+

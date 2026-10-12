@@ -28,7 +28,7 @@ h1 {
 .card {
   background: #181b21;
   border: 1px solid #292e38;
-  border-radius: 16px;
+  border-radius: 8px;
   padding: 22px;
   margin: 20px 0;
 }
@@ -76,7 +76,25 @@ button {
 
 .habit > div {
   flex: 1;
+  min-width: 200px;
+  overflow-wrap: anywhere;
 }
+
+button:disabled { opacity: .55; cursor: default; }
+.habit { flex-wrap: wrap; }
+.toggles { display: grid; gap: 12px; }
+.toggles label, .weekdays label { display: flex; align-items: center; gap: 8px; }
+.weekdays { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 14px; border: 1px solid #303641; }
+.row { flex-wrap: wrap; }
+.row input { min-width: 0; flex: 1; }
+ul { padding: 0; list-style: none; }
+li { padding: 8px 0; overflow-wrap: anywhere; }
+.analytics-grid { display: grid; grid-template-columns: repeat(10, minmax(0, 1fr)); gap: 6px; }
+.analytics-grid > div { aspect-ratio: 1; display: grid; place-items: center; border-radius: 4px; font-size: 13px; }
+.table-scroll { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+th, td { padding: 10px; text-align: left; border-bottom: 1px solid #303641; }
+[role="alert"] { color: #ff9da7; }
 
 .habit span {
   display: block;
